@@ -153,8 +153,6 @@ class Tableau:
                 elif ratio == minimum_ratio:
                     candidates.append(i)
 
-        print('Leaving candidates:', candidates)
-
         return candidates
 
     def is_optimal(self):
@@ -340,7 +338,10 @@ class Solver:
             tb.set_objective(initial_obj)
 
             if self.verbose:
-                print('[Starting phase I]')
+                print('/-------------------\\')
+                print('| Beginning phase I |')
+                print('\\-------------------/')
+                print()
                 print('The phase I tableau is:')
                 print()
                 tb.print()
@@ -362,7 +363,10 @@ class Solver:
         tb.set_objective(prog.c[:])
 
         if self.verbose:
-            print('[Starting phase II]')
+            print('/--------------------\\')
+            print('| Beginning phase II |')
+            print('\\--------------------/')
+            print()
             print('The phase II tableau is:')
             print()
             tb.print()
