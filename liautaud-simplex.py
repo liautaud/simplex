@@ -3,13 +3,13 @@
 An implementation of the Simplex algorithm for the OA course.
 
 It supports the following pivot rules:
+- Interactive pivot (using --rule=interactive)
 - Maximum Coefficient Rule (using --rule=pivot)
 - Bland's Rule (using --rule=bland)
 - Random pivot (using --rule=random)
 """
 __author__ = 'Romain Liautaud'
 __email__ = 'romain.liautaud@ens-lyon.fr'
-__license__ = 'GPL'
 
 
 import argparse
@@ -33,6 +33,7 @@ class State(Enum):
 
 
 class Program:
+
     def __init__(self, n, m, c, b, a):
         """Initialize a linear program.
 
@@ -111,6 +112,7 @@ class Program:
 
 
 class Tableau:
+
     def __init__(self, c, basic, nonbasic, artificial):
         """Initialize a tableau.
 
@@ -130,15 +132,27 @@ class Tableau:
 
     def set_objective(self, v):
         """Redefine the objective function."""
-        obj_value = 0
         obj_vector = v + [0] * (self.c.cols - 1 - len(v))
 
-        for i in self.basic:
-            if obj_vector[i] != 0:
-                pass  # TODO
+        # We start with an objective value of 0, which is what we would get
+        # if all variables were non-basic. We will update this value as we
+        # substitute basic variables for non-basic ones later.
+        obj_value = 0
 
-        self.c[0, -1] = obj_value
+        # We must express the objective vector in terms of the non-basic
+        # variables, so we will substitute the basic variables with a linear
+        # combination of the non-basic ones and a scalar.
+        for row, i in enumerate(self.basic):
+            if obj_vector[i] != 0:
+                a = obj_vector[i]
+
+                for j in range(self.c.cols - 1):
+                    obj_vector[j] -= a * self.c[row + 1, j]
+
+                obj_value -= a * self.c[row + 1, -1]
+
         self.c[0, :-1] = [obj_vector]
+        self.c[0, -1] = obj_value
 
     def get_entering_candidates(self):
         """Return the variables which can be chosen to enter the basis."""
@@ -150,9 +164,9 @@ class Tableau:
         minimum_ratio = oo
 
         # Perform the ratio test on every row, and return the ties.
-        for index, i in enumerate(self.basic):
-            if self.c[index + 1, entering] != 0:
-                ratio = self.c[index + 1, -1] / self.c[index + 1, entering]
+        for row, i in enumerate(self.basic):
+            if self.c[row + 1, entering] != 0:
+                ratio = self.c[row + 1, -1] / self.c[row + 1, entering]
                 if ratio < minimum_ratio:
                     minimum_ratio = ratio
                     candidates = [i]
@@ -181,13 +195,13 @@ class Tableau:
         entering: Variable which will enter the basis.
         leaving: Variable which will leave the basis.
         """
-        entering_i = self.nonbasic.index(entering)
-        leaving_i = self.basic.index(leaving)
+        entering_row = self.nonbasic.index(entering)
+        leaving_row = self.basic.index(leaving)
 
-        self.nonbasic[entering_i] = leaving
-        self.basic[leaving_i] = entering
+        self.nonbasic[entering_row] = leaving
+        self.basic[leaving_row] = entering
 
-        self.gauss_jordan(entering_i + 1, entering)
+        self.gauss_jordan(entering_row + 1, entering)
 
     def gauss_jordan(self, i, j):
         """Apply Gauss-Jordan elimination to the tableau.
@@ -292,39 +306,41 @@ class Solver:
 
     def solve(self, prog):
         """Solve the given linear program."""
-        a_count, initial_tb = Tableau.convert(prog)
+        a_count, tb = Tableau.convert(prog)
+        tb.print()
 
         if a_count > 0:
             # Phase I of the algorithm.
-            na_count = initial_tb.c.cols - 1 - a_count
+            na_count = tb.c.cols - 1 - a_count
             initial_obj = [0] * na_count + [-1] * a_count
-            initial_tb.set_objective(initial_obj)
+            tb.set_objective(initial_obj)
 
             if self.verbose:
                 print('The Phase I tableau is:')
                 print()
-                initial_tb.print()
+                tb.print()
                 print()
 
-            state, middle_tb, _ = self.one_phase(initial_tb, False)
+            state, tb, _ = self.one_phase(tb, False)
 
             if state != State.BOUNDED:
                 print('This linear program is UNFEASIBLE.')
                 return
 
-            if middle_tb.get_objective_value() != 0:
+            if tb.get_objective_value() != 0:
                 print('This linear program is UNFEASIBLE.')
                 return
 
-            middle_tb.remove_artificial()
+            tb.remove_artificial()
 
         # Phase II of the algorithm.
-        middle_tb.set_objective(prog.c[:])
+        tb.set_objective(prog.c[:])
+        tb.print()
 
-        state, final_tb, pivots = self.one_phase(middle_tb)
+        state, tb, pivots = self.one_phase(tb)
 
         if state == State.BOUNDED:
-            solution = self.get_solution(prog, final_tb)
+            solution = self.get_solution(prog, tb)
             solution_str = ', '.join([
                 'x_' + str(i + 1) +
                 ' = ' + str(solution[i]) for i in solution])
