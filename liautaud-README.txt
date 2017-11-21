@@ -40,4 +40,28 @@ to install the project's dependencies, or install `sympy` yourself using `pip`.
 This solver depends on `argparse` for the parsing of command-line arguments, and
 on `sympy` to handle matrices and rational numbers.
 
-It has been tested on problems
+It has been tested on problems up to 100 variables, on other problems up to 100
+constraints, and on problems with 50 variables and 50 constraint -- even though
+this last one took a long while to complete.
+
+See `liautaud-discussion.txt` for remarks and discussion on interesting examples.
+
+
+## Generating random problems.
+
+To generate random problems, use `./generate.py`, which has the following specs:
+
+```
+usage: generate.py [-h] [--width WIDTH] [--density DENSITY] n m
+
+Generates linear programming problems.
+
+positional arguments:
+  n                  The number of variables.
+  m                  The number of constraints.
+
+optional arguments:
+  -h, --help         show this help message and exit
+  --width WIDTH      The range of the randomly generated coefficients.
+  --density DENSITY  The probability that a coefficient is equal to 0.
+```

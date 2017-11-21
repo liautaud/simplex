@@ -10,7 +10,7 @@ import argparse
 import random
 
 
-def generate(n, m, width, density, negative):
+def generate(n, m, width, density):
     """Print a random linear problem."""
 
     def generate(k):
@@ -56,13 +56,8 @@ def main():
         '--density', type=float, default=.2,
         help='The probability that a coefficient is equal to 0.')
 
-    parser.set_defaults(negative=False)
-    parser.add_argument(
-        '--negative', '-v', action='store_true',
-        help='Whether to have negative coefficients in the RHS.')
-
     args = parser.parse_args()
-    generate(args.n, args.m, args.width, args.density, args.negative)
+    generate(args.n, args.m, args.width, args.density)
 
 
 if __name__ == '__main__':

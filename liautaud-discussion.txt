@@ -1,0 +1,22 @@
+1. I provided several custom rules: an `interactive` rule to make debugging easier, a `random` rule
+   which in some instances performs better than `bland`, and a `minimum` rule which is inspired by
+   the maximum coefficient rule, but always chooses the entering variable candidate which has the
+   smallest coefficient in the objective vector.
+
+   As one could have predicted, this `minimum` rule is very inefficient, as it makes, at each step,
+   the worst possible choice to maximize the objective function. It is however interesting, as it
+   gives us somewhat of a "worst execution time", to be used as a reference when benchmarking the
+   other rules.
+
+2. An interesting case of differing behavior between rules in given in `tests/cycling.dat`.
+   When using the maximum pivot rules, the solver cycles forever, whereas it is solved in only
+   5 pivots when using Bland's rule. As would be expected, the random pivot rule eventually
+   gives an answer on this test, but it is interesting to note that it often gives an answer
+   using less pivots than with Bland's rule.
+
+   Another interesting case is given in `tests/slow-bland.py`. While the maximum pivot rule
+   solves this 30 variable and 30 constraint problem in only one pivot, it is _really_ slow
+   to solve using Bland's rule.
+
+3. My implementation seems to be more sensitive to the number of constraints than to the number
+   of variables (see `tests/many-constraints.dat` vs. `tests/many-variables.dat`).
