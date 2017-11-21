@@ -119,7 +119,7 @@ class Tableau:
 
     def get_objective_value(self):
         """Return the value of the objective function."""
-        return -1 * self.c[0, -1]
+        return self.c[0, -1] * Rational(-1)
 
     def set_objective(self, v):
         """Redefine the objective function."""
@@ -172,10 +172,7 @@ class Tableau:
         """
         available = [i for i in self.nonbasic if i not in self.artificial]
 
-        # print('Removing artificial variables.')
-        # print('Can choose to replace them with:', available)
-
-        for j in self.artificial:
+        for j in reversed(self.artificial):
             if j in self.basic:
                 row = self.basic.index(j)
 
@@ -380,7 +377,7 @@ class Solver:
 
             print('This linear program has a BOUNDED solution.')
             print('One optimal solution is: %s' % solution_str)
-            print('The value of the objective for this solution is: %d' %
+            print('The value of the objective for this solution is:',
                   tb.get_objective_value())
             print('The number of pivots is: %d' % pivots)
             print('The pivot rule used: %s' % self.rule)
