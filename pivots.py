@@ -34,7 +34,13 @@ def pivot_maximum(tb):
 
 
 def pivot_bland(tb):
+    # Among all candidates for the entering variable in the set, choose
+    # the one with the smallest index.
     entering = tb.get_entering_candidates()[0]
+
+    # Among all the constraints for which the minimum ratio test results
+    # in a tie, choose the constraint for which the corresponding basic
+    # variable has the smallest index.
     leaving = tb.get_leaving_candidates(entering)[0]
 
     return entering, leaving

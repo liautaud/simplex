@@ -145,13 +145,15 @@ class Tableau:
 
         # Perform the ratio test on every row, and return the ties.
         for row, i in enumerate(self.basic):
-            if self.c[row + 1, entering] != 0:
+            if self.c[row + 1, entering] > 0:
                 ratio = self.c[row + 1, -1] / self.c[row + 1, entering]
                 if ratio < minimum_ratio:
                     minimum_ratio = ratio
                     candidates = [i]
                 elif ratio == minimum_ratio:
                     candidates.append(i)
+
+        print('Leaving candidates:', candidates)
 
         return candidates
 
@@ -166,8 +168,28 @@ class Tableau:
                     for j in range(self.c.cols)])
 
     def remove_artificial(self):
-        # TODO: Pivot if needed and then delete columns
-        pass
+        """Remove all the artificial variables from the tableau.
+
+        Some of those variables might still be in the basis, so we might have
+        have to pivot a couple of times to remove them from the basis before
+        deleting the corresponding columns.
+        """
+        available = [i for i in self.nonbasic if i not in self.artificial]
+
+        for j in self.artificial:
+            if j in self.basic:
+                row = self.basic.index(j)
+
+                for i in available:
+                    if self.c[row, i] != 0:
+                        self.do_pivot(i, j)
+                        available.remove(i)
+
+                self.basic.remove(j)
+            else:
+                self.nonbasic.remove(j)
+
+            self.c.col_del(j)
 
     def do_pivot(self, entering, leaving):
         """Apply the pivot transformation on the tableau.
@@ -204,7 +226,7 @@ class Tableau:
             self.c[i, :] += self.c[p, :] * Rational(1, self.c[p, j])
 
         # Then put coefficient 0 in all the other c[b, j].
-        for b in range(1, self.c.rows):
+        for b in range(self.c.rows):
             if b != i:
                 self.c[b, :] -= self.c[i, :] * self.c[b, j]
 
@@ -245,7 +267,7 @@ class Tableau:
     def convert(prog):
         """Create the initial tableau for a given program.
 
-        This tableau is meant for Phase I of the simplex, as it contains
+        This tableau is meant for phase I of the simplex, as it contains
         artificial variables which should not appear in the final solution.
 
         Warning: this method doesn't fill the objective vector. You must do
@@ -318,8 +340,8 @@ class Solver:
             tb.set_objective(initial_obj)
 
             if self.verbose:
-                print('<Starting Phase I>')
-                print('The Phase I tableau is:')
+                print('[Starting phase I]')
+                print('The phase I tableau is:')
                 print()
                 tb.print()
                 print()
@@ -340,8 +362,8 @@ class Solver:
         tb.set_objective(prog.c[:])
 
         if self.verbose:
-            print('<Starting Phase II>')
-            print('The Phase II tableau is:')
+            print('[Starting phase II]')
+            print('The phase II tableau is:')
             print()
             tb.print()
             print()
