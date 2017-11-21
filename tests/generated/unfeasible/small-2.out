@@ -1,0 +1,14 @@
+╒═══════════════════════════════════════╕
+| Linear solver - OA course - ENSL 2017 |
+╘═══════════════════════════════════════╛
+
+The input linear program is:
+
+Maximize  -1_x1 +1_x2 -1_x3 +5_x4 -4_x5 +15_x6+12_x7+6_x8 
+Such that +3_x1 -3_x2 +3_x3 +1_x4 +3_x5 +2_x6 +2_x7       <= -4
+          +2_x1       +1_x3 +3_x4 -1_x5 +4_x6 +4_x7 +4_x8 <= 3
+          -3_x1 +4_x2 -3_x3 -1_x4       +1_x6 -1_x7 -1_x8 <= -4
+          +2_x1 +4_x2 +4_x3 -2_x4 +1_x5 +4_x6 -1_x7       <= 0
+          x_1, x_2, x_3, x_4, x_5, x_6, x_7, x_8 are non-negative
+
+This linear program is UNFEASIBLE.
