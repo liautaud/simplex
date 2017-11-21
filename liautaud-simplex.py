@@ -26,7 +26,6 @@ class State(Enum):
 
 
 class Program:
-
     def __init__(self, n, m, c, b, a):
         """Initialize a linear program.
 
@@ -105,7 +104,6 @@ class Program:
 
 
 class Tableau:
-
     def __init__(self, c, basic, nonbasic, artificial):
         """Initialize a tableau.
 
@@ -174,6 +172,9 @@ class Tableau:
         """
         available = [i for i in self.nonbasic if i not in self.artificial]
 
+        # print('Removing artificial variables.')
+        # print('Can choose to replace them with:', available)
+
         for j in self.artificial:
             if j in self.basic:
                 row = self.basic.index(j)
@@ -182,11 +183,9 @@ class Tableau:
                     if self.c[row, i] != 0:
                         self.do_pivot(i, j)
                         available.remove(i)
+                        break
 
-                self.basic.remove(j)
-            else:
-                self.nonbasic.remove(j)
-
+            self.nonbasic.remove(j)
             self.c.col_del(j)
 
     def do_pivot(self, entering, leaving):
@@ -317,7 +316,6 @@ class Tableau:
 
 
 class Solver:
-
     def __init__(self, rule, verbose):
         """Initialize a Simplex solver with options.
 
@@ -347,7 +345,7 @@ class Solver:
                 tb.print()
                 print()
 
-            state, tb, _ = self.one_phase(tb, False)
+            state, tb, _ = self.one_phase(tb, True)
 
             if state != State.BOUNDED:
                 print('This linear program is UNFEASIBLE.')
@@ -400,14 +398,8 @@ class Solver:
         pivots = 0
 
         if not silent and self.verbose:
-            print('The initial tableau is:')
-            print()
-            tb.print()
-            print()
-
             basis = map(lambda i: 'x_' + str(i + 1), tb.basic)
             print('The initial basis is: ' + ', '.join(basis))
-            print()
 
         while True:
             if tb.is_optimal():
