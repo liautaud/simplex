@@ -4,7 +4,7 @@ An implementation of the Simplex algorithm for the OA course.
 
 It supports the following pivot rules:
 - Interactive pivot (using --rule=interactive)
-- Maximum Coefficient Rule (using --rule=pivot)
+- Maximum Coefficient Rule (using --rule=maximum)
 - Bland's Rule (using --rule=bland)
 - Random pivot (using --rule=random)
 """
@@ -16,14 +16,7 @@ import argparse
 from enum import Enum
 from sympy import Matrix, Rational, nan, oo
 
-
-def pivot_interactive(tb):
-    print(tb.get_entering_candidates())
-    entering = int(input('Choose the entering variable: '))
-    print(tb.get_leaving_candidates(entering))
-    leaving = int(input('Choose the leaving variable: '))
-
-    return entering, leaving
+from pivots import rules
 
 
 class State(Enum):
@@ -128,31 +121,18 @@ class Tableau:
 
     def get_objective_value(self):
         """Return the value of the objective function."""
-        return self.c[0, -1]
+        return -1 * self.c[0, -1]
 
     def set_objective(self, v):
         """Redefine the objective function."""
-        obj_vector = v + [0] * (self.c.cols - 1 - len(v))
+        self.c[0, :-1] = [v + [0] * (self.c.cols - 1 - len(v))]
 
         # We start with an objective value of 0, which is what we would get
         # if all variables were non-basic. We will update this value as we
         # substitute basic variables for non-basic ones later.
-        obj_value = 0
+        self.c[0, -1] = 0
 
-        # We must express the objective vector in terms of the non-basic
-        # variables, so we will substitute the basic variables with a linear
-        # combination of the non-basic ones and a scalar.
-        for row, i in enumerate(self.basic):
-            if obj_vector[i] != 0:
-                a = obj_vector[i]
-
-                for j in range(self.c.cols - 1):
-                    obj_vector[j] -= a * self.c[row + 1, j]
-
-                obj_value -= a * self.c[row + 1, -1]
-
-        self.c[0, :-1] = [obj_vector]
-        self.c[0, -1] = obj_value
+        self.do_pivot_objective()
 
     def get_entering_candidates(self):
         """Return the variables which can be chosen to enter the basis."""
@@ -177,7 +157,7 @@ class Tableau:
 
     def is_optimal(self):
         """Return whether the tableau meets the optimality criterion."""
-        return len(self.get_entering_candidates() == 0)
+        return len(self.get_entering_candidates()) == 0
 
     def is_unbounded(self):
         """Return whether the tableau meets the unbounded criterion."""
@@ -201,13 +181,18 @@ class Tableau:
         self.nonbasic[entering_row] = leaving
         self.basic[leaving_row] = entering
 
-        self.gauss_jordan(entering_row + 1, entering)
+        self.gauss_jordan(leaving_row + 1, entering)
+        self.do_pivot_objective()
 
     def gauss_jordan(self, i, j):
         """Apply Gauss-Jordan elimination to the tableau.
 
         This will transform the j-th column into a column filled with
         zeroes except on the i-th row, which will have coefficient 1.
+
+        Note that this doesn't affect the objective vector: to perform a
+        full pivot, you must also call do_pivot_objective() to express
+        the objective vector in terms of the non-basic variables only.
         """
 
         # Start by putting coefficient 1 in c[i, j].
@@ -219,9 +204,27 @@ class Tableau:
             self.c[i, :] += self.c[p, :] * Rational(1, self.c[p, j])
 
         # Then put coefficient 0 in all the other c[b, j].
-        for b in range(self.c.rows):
+        for b in range(1, self.c.rows):
             if b != i:
                 self.c[b, :] -= self.c[i, :] * self.c[b, j]
+
+    def do_pivot_objective(self):
+        """Express the objective vector in terms of the non-basic variables.
+
+        This is used in the set_objective and do_pivot methods to maintain
+        the invariant needed by the Simplex.
+        """
+
+        # To do so, we will substitute the basic variables with a linear
+        # combination of the non-basic ones and a scalar.
+        for row, i in enumerate(self.basic):
+            if self.c[0, i] != 0:
+                a = self.c[0, i]
+
+                for j in range(self.c.cols - 1):
+                    self.c[0, j] -= a * self.c[row + 1, j]
+
+                self.c[0, -1] -= a * self.c[row + 1, -1]
 
     def print(self):
         """Pretty-print the tableau."""
@@ -294,20 +297,19 @@ class Tableau:
 
 
 class Solver:
+
     def __init__(self, rule, verbose):
         """Initialize a Simplex solver with options.
 
         rule: The pivot rule to use.
         verbose: Whether the output should be verbose.
         """
-        # self.rule = rule
-        self.rule = pivot_interactive  # TODO
+        self.rule = rule
         self.verbose = verbose
 
     def solve(self, prog):
         """Solve the given linear program."""
         a_count, tb = Tableau.convert(prog)
-        tb.print()
 
         if a_count > 0:
             # Phase I of the algorithm.
@@ -316,6 +318,7 @@ class Solver:
             tb.set_objective(initial_obj)
 
             if self.verbose:
+                print('<Starting Phase I>')
                 print('The Phase I tableau is:')
                 print()
                 tb.print()
@@ -335,7 +338,13 @@ class Solver:
 
         # Phase II of the algorithm.
         tb.set_objective(prog.c[:])
-        tb.print()
+
+        if self.verbose:
+            print('<Starting Phase II>')
+            print('The Phase II tableau is:')
+            print()
+            tb.print()
+            print()
 
         state, tb, pivots = self.one_phase(tb)
 
@@ -347,8 +356,10 @@ class Solver:
 
             print('This linear program has a BOUNDED solution.')
             print('One optimal solution is: %s' % solution_str)
-            print('The number of pivots is : %d' % pivots)
-            print('The pivot rule used: %s' % self.rule)  # TODO?
+            print('The value of the objective for this solution is: %d' %
+                  tb.get_objective_value())
+            print('The number of pivots is: %d' % pivots)
+            print('The pivot rule used: %s' % self.rule)
             return
 
         if state == State.UNBOUNDED:
@@ -379,13 +390,14 @@ class Solver:
             if tb.is_unbounded():
                 return (State.UNBOUNDED, tb, pivots)
 
-            entering, leaving = self.rule(tb)
+            entering, leaving = rules[self.rule](tb)
             tb.do_pivot(entering, leaving)
             pivots += 1
 
             if not silent and self.verbose:
                 print('The entering variable is: x_%d' % (entering + 1))
                 print('The leaving variable is: x_%d' % (leaving + 1))
+                print()
                 tb.print()
                 print()
 
@@ -414,9 +426,8 @@ def main():
         help='The input file in the right format.')
 
     parser.add_argument(
-        '--rule', metavar='R',
-        choices=['pivot', 'bland', 'random', 'interactive'],
-        help='The pivot rule to use in the algorithm.', default='pivot')
+        '--rule', metavar='R', choices=rules.keys(),
+        help='The pivot rule to use in the algorithm.', default='bland')
 
     parser.set_defaults(verbose=False)
     parser.add_argument(
