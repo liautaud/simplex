@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-A Python implementation of the Simplex Algorithm for the OA course.
+An implementation of the Simplex algorithm for the OA course.
 
 It supports the following pivot rules:
 - Maximum Coefficient Rule (using --rule=pivot)
@@ -13,15 +13,28 @@ __license__ = 'GPL'
 
 
 import argparse
-import sympy
+from enum import Enum
+from sympy import Matrix, Rational, nan, oo
 
-from sympy.matrices import Matrix
+
+def pivot_interactive(tb):
+    print(tb.get_entering_candidates())
+    entering = int(input('Choose the entering variable: '))
+    print(tb.get_leaving_candidates(entering))
+    leaving = int(input('Choose the leaving variable: '))
+
+    return entering, leaving
+
+
+class State(Enum):
+    UNFEASIBLE = 0
+    BOUNDED = 1
+    UNBOUNDED = 2
 
 
 class Program:
     def __init__(self, n, m, c, b, a):
-        """
-        Initialize a linear program.
+        """Initialize a linear program.
 
         n: Number of variables of the program.
         m: Number of constraints of the program.
@@ -36,9 +49,8 @@ class Program:
         self.a = Matrix(a)
 
     def print(self):
-        """
-        Pretty-print the linear program.
-        """
+        """Pretty-print the linear program."""
+
         var_padding = len(str(self.n))
         coe_padding = max(
             *[len(str(k)) for k in self.c],
@@ -75,8 +87,7 @@ class Program:
 
     @staticmethod
     def parse(data):
-        """
-        Parse a linear program from an input stream.
+        """Parse a linear program from an input stream.
 
         data: Input stream, as returned by open().
         """
@@ -86,7 +97,7 @@ class Program:
         lines = []
         for i in range(m + 2):
             line = data.readline().strip().split(' ')
-            line = list(map(sympy.Rational, line))
+            line = list(map(Rational, line))
             lines.append(line)
 
         if len(lines[0]) != n:
@@ -100,22 +111,295 @@ class Program:
 
 
 class Tableau:
-    pass
+    def __init__(self, c, basic, nonbasic, artificial):
+        """Initialize a tableau.
+
+        c: List of coefficients of the tableau.
+        basic: List of basic variables.
+        nonbasic: List of non-basic variables.
+        artificial: List of artificial variables.
+        """
+        self.c = Matrix(c)
+        self.basic = basic
+        self.nonbasic = nonbasic
+        self.artificial = artificial
+
+    def get_objective_value(self):
+        """Return the value of the objective function."""
+        return self.c[0, -1]
+
+    def set_objective(self, v):
+        """Redefine the objective function."""
+        obj_value = 0
+        obj_vector = v + [0] * (self.c.cols - 1 - len(v))
+
+        for i in self.basic:
+            if obj_vector[i] != 0:
+                pass  # TODO
+
+        self.c[0, -1] = obj_value
+        self.c[0, :-1] = [obj_vector]
+
+    def get_entering_candidates(self):
+        """Return the variables which can be chosen to enter the basis."""
+        return [j for j in self.nonbasic if self.c[0, j] > 0]
+
+    def get_leaving_candidates(self, entering):
+        """Return the variables which can be chosen to leave the basis."""
+        candidates = []
+        minimum_ratio = oo
+
+        # Perform the ratio test on every row, and return the ties.
+        for index, i in enumerate(self.basic):
+            if self.c[index + 1, entering] != 0:
+                ratio = self.c[index + 1, -1] / self.c[index + 1, entering]
+                if ratio < minimum_ratio:
+                    minimum_ratio = ratio
+                    candidates = [i]
+                elif ratio == minimum_ratio:
+                    candidates.append(i)
+
+        return candidates
+
+    def is_optimal(self):
+        """Return whether the tableau meets the optimality criterion."""
+        return len(self.get_entering_candidates() == 0)
+
+    def is_unbounded(self):
+        """Return whether the tableau meets the unbounded criterion."""
+        return any([self.c[0, j] > 0 and
+                    all([self.c[i, j] <= 0 for i in range(1, self.c.rows)])
+                    for j in range(self.c.cols)])
+
+    def remove_artificial(self):
+        # TODO: Pivot if needed and then delete columns
+        pass
+
+    def do_pivot(self, entering, leaving):
+        """Apply the pivot transformation on the tableau.
+
+        entering: Variable which will enter the basis.
+        leaving: Variable which will leave the basis.
+        """
+        entering_i = self.nonbasic.index(entering)
+        leaving_i = self.basic.index(leaving)
+
+        self.nonbasic[entering_i] = leaving
+        self.basic[leaving_i] = entering
+
+        self.gauss_jordan(entering_i + 1, entering)
+
+    def gauss_jordan(self, i, j):
+        """Apply Gauss-Jordan elimination to the tableau.
+
+        This will transform the j-th column into a column filled with
+        zeroes except on the i-th row, which will have coefficient 1.
+        """
+
+        # Start by putting coefficient 1 in c[i, j].
+        if self.c[i, j] != 0:
+            self.c[i, :] *= Rational(1, self.c[i, j])
+        else:
+            p = next(a for a in range(self.c.rows)
+                     if self.c[a, j] != 0 and a != i)
+            self.c[i, :] += self.c[p, :] * Rational(1, self.c[p, j])
+
+        # Then put coefficient 0 in all the other c[b, j].
+        for b in range(self.c.rows):
+            if b != i:
+                self.c[b, :] -= self.c[i, :] * self.c[b, j]
+
+    def print(self):
+        """Pretty-print the tableau."""
+
+        padding = max([len(str(k)) for k in self.c])
+
+        def align(row):
+            return ' '.join([str(k).ljust(padding) for k in row[:-1]]) +\
+                   ' | ' + str(row[-1])
+
+        print(align(self.c.row(0)))
+        print('-' * (1 + self.c.cols * (padding + 1)))
+
+        for i in range(1, self.c.rows):
+            print(align(self.c.row(i)))
+
+    @staticmethod
+    def convert(prog):
+        """Create the initial tableau for a given program.
+
+        This tableau is meant for Phase I of the simplex, as it contains
+        artificial variables which should not appear in the final solution.
+
+        Warning: this method doesn't fill the objective vector. You must do
+        it manually using tb.set_objective().
+        """
+        n = prog.n
+        basic = []
+        artificial = []
+
+        # Stores the slack variable that was created for each constraint.
+        slack = {}
+
+        # Create the basic tableau from the program.
+        c = prog.a[:, :]
+        c = c.row_insert(0, Matrix([nan] * n).T)
+
+        def make_col(i):
+            """Create a vector with zeros everywhere but on the i-th row."""
+            return Matrix([[nan] + [0] * (i - 1) + [1] + [0] * (prog.m - i)])
+
+        # Add the slack variables.
+        for i in range(prog.m):
+            slack[i] = n
+            c = c.col_insert(n + 1, make_col(i + 1).T)
+            n += 1
+
+        # Make all the right-hand side coefficients positive, and add
+        # artificial variables if needed. At the end, we get as many
+        # basic variables as there are constraints: they are either
+        # the slack variables we created earlier, or the artificial
+        # variables we just created.
+        for i in range(prog.m):
+            if prog.b[i] < 0:
+                c[i + 1, :] *= -1
+                c = c.col_insert(n + 1, make_col(i + 1).T)
+                artificial.append(n)
+                basic.append(n)
+                n += 1
+            else:
+                basic.append(slack[i])
+
+        # Add the right-hand side.
+        c = c.col_insert(n, Matrix([nan] + list(map(abs, prog.b[:]))))
+
+        # Deduce the non-basic variables.
+        nonbasic = [i for i in range(n) if i not in basic]
+
+        return (len(artificial), Tableau(c, basic, nonbasic, artificial))
+
+
+class Solver:
+    def __init__(self, rule, verbose):
+        """Initialize a Simplex solver with options.
+
+        rule: The pivot rule to use.
+        verbose: Whether the output should be verbose.
+        """
+        # self.rule = rule
+        self.rule = pivot_interactive  # TODO
+        self.verbose = verbose
+
+    def solve(self, prog):
+        """Solve the given linear program."""
+        a_count, initial_tb = Tableau.convert(prog)
+
+        if a_count > 0:
+            # Phase I of the algorithm.
+            na_count = initial_tb.c.cols - 1 - a_count
+            initial_obj = [0] * na_count + [-1] * a_count
+            initial_tb.set_objective(initial_obj)
+
+            if self.verbose:
+                print('The Phase I tableau is:')
+                print()
+                initial_tb.print()
+                print()
+
+            state, middle_tb, _ = self.one_phase(initial_tb, False)
+
+            if state != State.BOUNDED:
+                print('This linear program is UNFEASIBLE.')
+                return
+
+            if middle_tb.get_objective_value() != 0:
+                print('This linear program is UNFEASIBLE.')
+                return
+
+            middle_tb.remove_artificial()
+
+        # Phase II of the algorithm.
+        middle_tb.set_objective(prog.c[:])
+
+        state, final_tb, pivots = self.one_phase(middle_tb)
+
+        if state == State.BOUNDED:
+            solution = self.get_solution(prog, final_tb)
+            solution_str = ', '.join([
+                'x_' + str(i + 1) +
+                ' = ' + str(solution[i]) for i in solution])
+
+            print('This linear program has a BOUNDED solution.')
+            print('One optimal solution is: %s' % solution_str)
+            print('The number of pivots is : %d' % pivots)
+            print('The pivot rule used: %s' % self.rule)  # TODO?
+            return
+
+        if state == State.UNBOUNDED:
+            print('This linear program has an UNBOUNDED solution.')
+            return
+
+    def one_phase(self, tb, silent=False):
+        """Perform one phase of the algorithm, starting on a given tableau.
+
+        silent: Whether to stay quiet no matter the value of verbose.
+        """
+        pivots = 0
+
+        if not silent and self.verbose:
+            print('The initial tableau is:')
+            print()
+            tb.print()
+            print()
+
+            basis = map(lambda i: 'x_' + str(i + 1), tb.basic)
+            print('The initial basis is: ' + ', '.join(basis))
+            print()
+
+        while True:
+            if tb.is_optimal():
+                return (State.BOUNDED, tb, pivots)
+
+            if tb.is_unbounded():
+                return (State.UNBOUNDED, tb, pivots)
+
+            entering, leaving = self.rule(tb)
+            tb.do_pivot(entering, leaving)
+            pivots += 1
+
+            if not silent and self.verbose:
+                print('The entering variable is: x_%d' % (entering + 1))
+                print('The leaving variable is: x_%d' % (leaving + 1))
+                tb.print()
+                print()
+
+    def get_solution(self, prog, final_tb):
+        """Return the solution for a given program and final tableau."""
+        solution = {}
+
+        for i in range(prog.n):
+            if i in final_tb.basic:
+                index = final_tb.basic.index(i)
+                solution[i] = final_tb.c[index + 1, -1]
+            else:
+                solution[i] = 0
+
+        return solution
 
 
 def main():
-    """
-    Parse the command-line arguments and run the algorithm.
-    """
+    """Parse the command-line arguments and run the algorithm."""
+
     parser = argparse.ArgumentParser(
-        description='Solves a linear problem using the Simplex Algorithm.')
+        description='Solves a linear problem using the Simplex algorithm.')
 
     parser.add_argument(
         'input', metavar='I', type=open,
         help='The input file in the right format.')
 
     parser.add_argument(
-        '--rule', metavar='R', choices=['pivot', 'bland', 'random'],
+        '--rule', metavar='R',
+        choices=['pivot', 'bland', 'random', 'interactive'],
         help='The pivot rule to use in the algorithm.', default='pivot')
 
     parser.set_defaults(verbose=False)
@@ -124,8 +408,14 @@ def main():
         help='Whether to enable verbose output.')
 
     args = parser.parse_args()
-    # print(args)
-    Program.parse(args.input).print()
+    program = Program.parse(args.input)
+    solver = Solver(args.rule, args.verbose)
+
+    print('The input linear program is:')
+    print()
+    program.print()
+    print()
+    solver.solve(program)
 
 
 if __name__ == '__main__':
