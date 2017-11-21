@@ -33,6 +33,16 @@ def pivot_maximum(tb):
     return entering, leaving
 
 
+def pivot_minimum(tb):
+    entering_pairs = [(tb.c[0, j], j) for j in tb.get_entering_candidates()]
+    entering_pairs.sort()
+
+    entering = entering_pairs[0][1]
+    leaving = tb.get_leaving_candidates(entering)[0]
+
+    return entering, leaving
+
+
 def pivot_bland(tb):
     # Among all candidates for the entering variable in the set, choose
     # the one with the smallest index.
@@ -56,5 +66,6 @@ def pivot_random(tb):
 rules = {
     'interactive': pivot_interactive,
     'maximum': pivot_maximum,
+    'minimum': pivot_minimum,
     'bland': pivot_bland,
     'random': pivot_random}

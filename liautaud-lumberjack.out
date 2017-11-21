@@ -1,0 +1,16 @@
+╒═══════════════════════════════════════╕
+| Linear solver - OA course - ENSL 2017 |
+╘═══════════════════════════════════════╛
+
+The input linear program is:
+
+Maximize  +50_x1  +120_x2 
+Such that +1_x1   +1_x2   <= 100
+          +10_x1  +50_x2  <= 4000
+          x_1, x_2 are non-negative
+
+This linear program has a BOUNDED solution.
+One optimal solution is: x_1 = 25, x_2 = 75
+The value of the objective for this solution is: 10250
+The number of (second phase) pivots is: 2
+The pivot rule used: bland

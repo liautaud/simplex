@@ -5,6 +5,7 @@ An implementation of the Simplex algorithm for the OA course.
 It supports the following pivot rules:
 - Interactive pivot (using --rule=interactive)
 - Maximum Coefficient Rule (using --rule=maximum)
+- Minimum Coefficient Rule (using --rule=minimum)
 - Bland's Rule (using --rule=bland)
 - Random pivot (using --rule=random)
 """
@@ -12,6 +13,7 @@ __author__ = 'Romain Liautaud'
 __email__ = 'romain.liautaud@ens-lyon.fr'
 
 
+import sys
 import argparse
 from enum import Enum
 from sympy import Matrix, Rational, nan, oo
@@ -333,11 +335,10 @@ class Solver:
             tb.set_objective(initial_obj)
 
             if self.verbose:
-                print('/-------------------\\')
-                print('| Beginning phase I |')
-                print('\\-------------------/')
                 print()
-                print('The phase I tableau is:')
+                print('╾─────────┤ Beginning Phase I ├─────────╼')
+                print()
+                print('The Phase I tableau is:')
                 print()
                 tb.print()
                 print()
@@ -358,11 +359,10 @@ class Solver:
         tb.set_objective(prog.c[:])
 
         if self.verbose:
-            print('/--------------------\\')
-            print('| Beginning phase II |')
-            print('\\--------------------/')
             print()
-            print('The phase II tableau is:')
+            print('╾────────┤ Beginning Phase II ├────────╼')
+            print()
+            print('The Phase II tableau is:')
             print()
             tb.print()
             print()
@@ -379,7 +379,7 @@ class Solver:
             print('One optimal solution is: %s' % solution_str)
             print('The value of the objective for this solution is:',
                   tb.get_objective_value())
-            print('The number of pivots is: %d' % pivots)
+            print('The number of (second phase) pivots is: %d' % pivots)
             print('The pivot rule used: %s' % self.rule)
             return
 
@@ -432,12 +432,16 @@ class Solver:
 
 def main():
     """Parse the command-line arguments and run the algorithm."""
+    print('╒═══════════════════════════════════════╕')
+    print('| Linear solver - OA course - ENSL 2017 |')
+    print('╘═══════════════════════════════════════╛')
+    print()
 
     parser = argparse.ArgumentParser(
         description='Solves a linear problem using the Simplex algorithm.')
 
     parser.add_argument(
-        'input', metavar='I', type=open,
+        'input', metavar='I', nargs='?', type=open, default=sys.stdin,
         help='The input file in the right format.')
 
     parser.add_argument(

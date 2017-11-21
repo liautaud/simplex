@@ -1,0 +1,21 @@
+╒═══════════════════════════════════════╕
+| Linear solver - OA course - ENSL 2017 |
+╘═══════════════════════════════════════╛
+
+The input linear program is:
+
+Maximize  -1_x1  -1_x2  -1_x3  -1_x4  -1_x5  -1_x6  -1_x7  
+Such that -1_x1                -1_x4  -1_x5  -1_x6  -1_x7  <= -17
+          -1_x1  -1_x2                -1_x5  -1_x6  -1_x7  <= -21
+          -1_x1  -1_x2  -1_x3                -1_x6  -1_x7  <= -15
+          -1_x1  -1_x2  -1_x3  -1_x4                -1_x7  <= -20
+          -1_x1  -1_x2  -1_x3  -1_x4  -1_x5                <= -23
+                 -1_x2  -1_x3  -1_x4  -1_x5  -1_x6         <= -15
+                        -1_x3  -1_x4  -1_x5  -1_x6  -1_x7  <= -9
+          x_1, x_2, x_3, x_4, x_5, x_6, x_7 are non-negative
+
+This linear program has a BOUNDED solution.
+One optimal solution is: x_1 = 8, x_2 = 22/3, x_3 = 0, x_4 = 10/3, x_5 = 13/3, x_6 = 0, x_7 = 4/3
+The value of the objective for this solution is: -73/3
+The number of (second phase) pivots is: 0
+The pivot rule used: bland
